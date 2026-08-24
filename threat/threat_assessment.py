@@ -1,29 +1,35 @@
 """
 Threat Assessment Network (TAN)
 
-Reference implementation of the lightweight TAN described in the manuscript.
+Context-aware threat scoring and risk stratification for validated
+weapon detections.
 
-The threat score is defined as:
+Threat score:
 
     R_t = W_c * c_t * P_t
 
-where:
-    W_c = predefined weapon severity coefficient
-    c_t = detection confidence
-    P_t = temporal persistence
+Severity mapping:
 
-TAN performs only lightweight CPU-side operations:
-severity mapping, scalar multiplication, threshold comparison,
-and conditional decision rules.
+    Rifle / Assault Rifle -> 1.00
+    Pistol / Handgun      -> 0.75
+    Knife / Blade         -> 0.50
+    Other / Blunt Object  -> 0.25
+
+Risk thresholds:
+
+    R < 0.25          -> Low
+    0.25 <= R < 0.50  -> Medium
+    0.50 <= R < 0.75  -> High
+    R >= 0.75         -> Critical
 """
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import List
 
 
 @dataclass
 class ThreatAssessmentResult:
-    """Output of the Threat Assessment Network."""
+    """Final threat intelligence produced by TAN."""
 
     bbox: List[float]
     weapon_class: str
@@ -35,83 +41,103 @@ class ThreatAssessmentResult:
 
 
 class ThreatAssessment:
-    """
-    Lightweight threat assessment module.
+    """Lightweight CPU-side Threat Assessment Network."""
 
-    The numerical severity coefficients and threat thresholds are
-    configurable because their exact experimental values are not
-    specified in the manuscript.
-    """
+    SEVERITY_WEIGHTS = {
+        "rifle": 1.00,
+        "assault rifle": 1.00,
+        "pistol": 0.75,
+        "handgun": 0.75,
+        "knife": 0.50,
+        "blade": 0.50,
+        "other": 0.25,
+        "blunt object": 0.25
+    }
 
-    def __init__(
-        self,
-        severity_weights: Dict[str, float],
-        thresholds: Dict[str, float],
-        priorities: Dict[str, int] = None
-    ):
-        self.severity_weights = severity_weights
-        self.thresholds = thresholds
+    THRESHOLDS = {
+        "medium": 0.25,
+        "high": 0.50,
+        "critical": 0.75
+    }
 
-        self.priorities = priorities or {
-            "LOW": 1,
-            "MEDIUM": 2,
-            "HIGH": 3,
-            "CRITICAL": 4
-        }
+    PRIORITIES = {
+        "LOW": 1,
+        "MEDIUM": 2,
+        "HIGH": 3,
+        "CRITICAL": 4
+    }
 
-        required_levels = {
-            "MEDIUM",
-            "HIGH",
-            "CRITICAL"
-        }
+    def _severity(self, weapon_class):
+        """
+        Map a validated weapon class to its severity coefficient.
+        """
 
-        if not required_levels.issubset(thresholds):
-            raise ValueError(
-                "Thresholds must define MEDIUM, HIGH and CRITICAL."
-            )
+        normalized = weapon_class.lower().strip()
+
+        return self.SEVERITY_WEIGHTS.get(
+            normalized,
+            self.SEVERITY_WEIGHTS["other"]
+        )
 
     def compute_score(
         self,
-        weapon_class: str,
-        confidence: float,
-        persistence: float
-    ) -> float:
-        """Compute R_t = W_c * c_t * P_t."""
+        weapon_class,
+        confidence,
+        persistence
+    ):
+        """
+        Compute:
 
-        severity = self.severity_weights.get(
-            weapon_class,
-            0.0
+            R_t = W_c * c_t * P_t
+        """
+
+        confidence = max(
+            0.0,
+            min(1.0, float(confidence))
         )
 
-        confidence = max(0.0, min(1.0, confidence))
-        persistence = max(0.0, min(1.0, persistence))
+        persistence = max(
+            0.0,
+            min(1.0, float(persistence))
+        )
 
-        score = severity * confidence * persistence
+        severity = self._severity(
+            weapon_class
+        )
 
-        return max(0.0, min(1.0, score))
+        score = (
+            severity
+            * confidence
+            * persistence
+        )
 
-    def classify(self, score: float) -> str:
-        """Map a threat score to one of four threat levels."""
+        return max(
+            0.0,
+            min(1.0, score)
+        )
 
-        if score >= self.thresholds["CRITICAL"]:
+    def classify(self, score):
+        """Assign the four-level threat category."""
+
+        if score >= self.THRESHOLDS["critical"]:
             return "CRITICAL"
 
-        if score >= self.thresholds["HIGH"]:
+        if score >= self.THRESHOLDS["high"]:
             return "HIGH"
 
-        if score >= self.thresholds["MEDIUM"]:
+        if score >= self.THRESHOLDS["medium"]:
             return "MEDIUM"
 
         return "LOW"
 
     def evaluate(
         self,
-        bbox: List[float],
-        weapon_class: str,
-        confidence: float,
-        persistence: float
-    ) -> ThreatAssessmentResult:
-        """Generate the final TAN output."""
+        bbox,
+        weapon_class,
+        confidence,
+        persistence
+    ):
+        """Generate contextual threat intelligence."""
 
         score = self.compute_score(
             weapon_class,
@@ -119,16 +145,16 @@ class ThreatAssessment:
             persistence
         )
 
-        level = self.classify(score)
-
-        priority = self.priorities[level]
+        level = self.classify(
+            score
+        )
 
         return ThreatAssessmentResult(
             bbox=bbox,
             weapon_class=weapon_class,
-            confidence=confidence,
-            persistence=persistence,
+            confidence=float(confidence),
+            persistence=float(persistence),
             threat_score=score,
             threat_level=level,
-            alert_priority=priority
+            alert_priority=self.PRIORITIES[level]
         )

@@ -1,15 +1,15 @@
 """
-REST metadata client.
+REST-based threat metadata communication.
 
-Provides an HTTP interface for transmitting compact threat
-metadata to an authorized monitoring service.
+The client transmits metadata only and never accepts raw video
+or surveillance frames.
 """
 
 import requests
 
 
 class RESTMetadataClient:
-    """REST client for threat metadata."""
+    """HTTP REST client for threat metadata."""
 
     def __init__(
         self,
@@ -20,11 +20,7 @@ class RESTMetadataClient:
         self.timeout = timeout
 
     def send(self, metadata):
-        """
-        Send threat metadata to the configured endpoint.
-
-        No raw image or video data are transmitted.
-        """
+        """Send one metadata packet to the configured endpoint."""
 
         response = requests.post(
             self.endpoint,

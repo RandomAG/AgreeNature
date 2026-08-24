@@ -1,24 +1,26 @@
 """
-Raspberry Pi orchestration layer for PEWTAF.
+PEWTAF Raspberry Pi edge orchestration.
 
-The Raspberry Pi performs:
-    - video acquisition
-    - preprocessing
-    - temporal validation
-    - threat assessment
-    - metadata generation
-    - communication
+CPU:
+    Frame acquisition
+    Preprocessing
+    TTVM
+    TAN
+    Metadata generation
+    Communication
+    EFPM
 
-Neural inference is delegated to the Hailo-8L backend.
+Hailo-8L:
+    Neural inference
 """
 
 class RaspberryPiPipeline:
-    """Coordinate the edge-side PEWTAF processing pipeline."""
 
     def __init__(
         self,
         preprocessor,
-        detector,
+        hailo_backend,
+        postprocessor,
         temporal_validator,
         threat_assessor,
         metadata_generator,
@@ -26,7 +28,8 @@ class RaspberryPiPipeline:
         publisher=None
     ):
         self.preprocessor = preprocessor
-        self.detector = detector
+        self.hailo = hailo_backend
+        self.postprocessor = postprocessor
         self.temporal_validator = temporal_validator
         self.threat_assessor = threat_assessor
         self.metadata_generator = metadata_generator
@@ -35,36 +38,28 @@ class RaspberryPiPipeline:
 
     def process_frame(self, frame):
         """
-        Process one surveillance frame through the complete
-        edge-side pipeline.
+        Execute one complete frame through the PEWTAF pipeline.
         """
 
-        try:
-            # 1. Temporarily retain the frame.
-            self.frame_processor.store(frame)
+        self.frame_processor.store(frame)
 
-            # 2. Raspberry Pi preprocessing.
+        try:
+            # CPU: preprocessing
             input_tensor = self.preprocessor.process(frame)
 
-            # 3. Hailo-8L neural inference.
-            raw_predictions = self.detector.infer(
-                input_tensor
-            )
+            # NPU: Hybrid YOLOv10-MobileViTv3 inference
+            raw_output = self.hailo.infer(input_tensor)
 
-            # 4. Convert model output to detections.
-            detections = self.detector.postprocess(
-                raw_predictions
-            )
+            # CPU: detector output decoding
+            detections = self.postprocessor.process(raw_output)
 
-            # 5. Temporal threat validation.
-            validated = self.temporal_validator.update(
-                detections
-            )
+            # CPU: temporal validation
+            validated = self.temporal_validator.update(detections)
 
             if validated is None:
                 return None
 
-            # 6. Threat assessment on Raspberry Pi CPU.
+            # CPU: threat assessment
             assessment = self.threat_assessor.evaluate(
                 bbox=validated.bbox,
                 weapon_class=validated.class_name,
@@ -72,17 +67,19 @@ class RaspberryPiPipeline:
                 persistence=validated.persistence
             )
 
-            # 7. Generate compact metadata.
+            # CPU: metadata generation
             metadata = self.metadata_generator.generate(
                 assessment
             )
 
-            # 8. Transmit metadata only.
+
+            # Communication: metadata only
             if self.publisher is not None:
                 self.publisher.publish(metadata)
 
             return metadata
 
         finally:
-            # 9. EFPM: release the temporary frame.
+
+            # EFPM: immediately release frame
             self.frame_processor.discard()

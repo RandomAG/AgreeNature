@@ -1,59 +1,65 @@
 """
-Hailo-8L inference interface.
+Hailo-8L inference adapter.
 
-The manuscript specifies that the trained
-YOLOv10-MobileViTv3-MSHSA network is compiled into HEF format
-and executed on the Hailo-8L accelerator.
+The trained Hybrid YOLOv10-MobileViTv3-MSHSA model is deployed
+through a Hailo Executable Format (HEF) model.
 
-The actual Hailo runtime/pipeline is supplied by the Hailo
-software stack. This class provides the project-level interface
-between the Raspberry Pi application and that backend.
+The Hailo runtime/application pipeline is treated as the hardware
+inference backend. This adapter isolates the rest of PEWTAF from
+Hailo-specific runtime details.
 """
 
 
 class HailoInference:
     """
-    Project-level interface for Hailo-8L inference.
+    Interface between PEWTAF and the Hailo inference backend.
 
-    The concrete inference implementation is provided by the
-    installed Hailo runtime/application pipeline.
+    Parameters
+    ----------
+    hef_path : str
+        Path to the compiled HEF model.
+
+    runtime : object
+        Hailo runtime/pipeline object exposing:
+            load_model()
+            infer()
+            close()
     """
 
-    def __init__(self, hef_path, runtime=None):
+    def __init__(
+        self,
+        hef_path,
+        runtime
+    ):
         self.hef_path = hef_path
         self.runtime = runtime
         self.initialized = False
 
     def initialize(self):
-        """
-        Initialize the Hailo inference backend.
+        """Load and initialize the HEF model."""
 
-        The exact runtime initialization is deployment-specific
-        and is delegated to the Hailo software environment.
-        """
+        self.runtime.load_model(
+            self.hef_path
+        )
 
-        if self.runtime is None:
-            raise RuntimeError(
-                "A Hailo runtime backend must be supplied."
-            )
-
-        self.runtime.load_model(self.hef_path)
         self.initialized = True
 
     def infer(self, input_tensor):
-        """Run inference using the configured Hailo backend."""
+        """Execute inference on the Hailo accelerator."""
 
         if not self.initialized:
             raise RuntimeError(
-                "Hailo inference has not been initialized."
+                "Hailo backend has not been initialized."
             )
 
-        return self.runtime.infer(input_tensor)
+        return self.runtime.infer(
+            input_tensor
+        )
 
     def close(self):
-        """Release the Hailo inference backend."""
+        """Release the Hailo backend."""
 
-        if self.runtime is not None:
+        if self.initialized:
             self.runtime.close()
 
         self.initialized = False

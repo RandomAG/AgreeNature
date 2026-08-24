@@ -1,16 +1,8 @@
 """
 Multi-Scale Hybrid Spatial Attention (MSHSA)
 
-Reference implementation of the MSHSA module described in the manuscript.
-
-Processing:
-    Input feature map
-        -> 3x3 / 5x5 / 7x7 depth-wise convolutions
-        -> channel-wise concatenation
-        -> channel attention
-        -> spatial attention
-        -> 1x1 projection
-        -> residual addition
+Reference implementation of the MSHSA module described in the
+proposed framework.
 """
 
 import torch
@@ -19,8 +11,9 @@ import torch.nn as nn
 
 class ChannelAttention(nn.Module):
     """
-    Channel attention using global average pooling followed by
-    a lightweight MLP and sigmoid activation.
+    Channel attention operating on the concatenated 3C feature map.
+
+    M_c = sigmoid(MLP(GAP(F_cat)))
     """
 
     def __init__(self, channels, reduction=16):
@@ -31,9 +24,19 @@ class ChannelAttention(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d(1)
 
         self.mlp = nn.Sequential(
-            nn.Conv2d(channels, hidden, kernel_size=1, bias=True),
+            nn.Conv2d(
+                channels,
+                hidden,
+                kernel_size=1,
+                bias=True
+            ),
             nn.ReLU(inplace=True),
-            nn.Conv2d(hidden, channels, kernel_size=1, bias=True),
+            nn.Conv2d(
+                hidden,
+                channels,
+                kernel_size=1,
+                bias=True
+            ),
             nn.Sigmoid()
         )
 
@@ -44,36 +47,44 @@ class ChannelAttention(nn.Module):
 
 class SpatialAttention(nn.Module):
     """
-    Spatial attention using average-pooling and max-pooling
-    along the channel dimension followed by convolution and
-    sigmoid activation.
+    Spatial attention based on channel-wise average and maximum
+    pooling followed by a 7x7 convolution.
     """
 
-    def __init__(self, kernel_size=7):
+    def __init__(self):
         super().__init__()
-
-        padding = kernel_size // 2
 
         self.conv = nn.Conv2d(
             2,
             1,
-            kernel_size=kernel_size,
-            padding=padding,
+            kernel_size=7,
+            padding=3,
             bias=False
         )
 
-        self.activation = nn.Sigmoid()
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        avg_map = torch.mean(x, dim=1, keepdim=True)
-        max_map, _ = torch.max(x, dim=1, keepdim=True)
+        avg_pool = torch.mean(
+            x,
+            dim=1,
+            keepdim=True
+        )
+
+        max_pool, _ = torch.max(
+            x,
+            dim=1,
+            keepdim=True
+        )
 
         pooled = torch.cat(
-            [avg_map, max_map],
+            [avg_pool, max_pool],
             dim=1
         )
 
-        attention = self.activation(self.conv(pooled))
+        attention = self.sigmoid(
+            self.conv(pooled)
+        )
 
         return x * attention
 
@@ -82,18 +93,42 @@ class MSHSA(nn.Module):
     """
     Multi-Scale Hybrid Spatial Attention module.
 
-    The input feature representation is processed using three
-    parallel depth-wise convolution branches with 3x3, 5x5,
-    and 7x7 kernels. The resulting representations are
-    concatenated and refined using channel and spatial attention.
-    A 1x1 convolution then restores the original channel
-    dimensionality, followed by a residual connection.
+    Input:
+        C x H x W
+
+    Multi-scale branches:
+        3x3 depth-wise convolution
+        5x5 depth-wise convolution
+        7x7 depth-wise convolution
+
+    Concatenation:
+        3C x H x W
+
+    Attention refinement:
+        Channel attention
+        Spatial attention
+
+    Projection:
+        1x1 convolution
+        Batch normalization
+        SiLU activation
+
+    Output:
+        C x H x W
     """
 
-    def __init__(self, channels, reduction=16):
+    def __init__(
+        self,
+        channels,
+        reduction=16
+    ):
         super().__init__()
 
-        # Multi-scale depth-wise feature extraction
+        self.channels = channels
+
+        # Multi-scale depth-wise convolution branches
+       
+
         self.dwconv3 = nn.Conv2d(
             channels,
             channels,
@@ -121,50 +156,61 @@ class MSHSA(nn.Module):
             bias=False
         )
 
-        # Concatenation produces 3C channels.
+        
+        # Attention operates on the concatenated 3C representation
+
         multi_scale_channels = channels * 3
 
-        # Attention mechanisms operate on the multi-scale
-        # representation before channel projection.
         self.channel_attention = ChannelAttention(
             multi_scale_channels,
             reduction=reduction
         )
 
-        self.spatial_attention = SpatialAttention(
-            kernel_size=7
-        )
+        self.spatial_attention = SpatialAttention()
 
-        # Restore the original channel dimensionality.
-        self.projection = nn.Conv2d(
-            multi_scale_channels,
-            channels,
-            kernel_size=1,
-            bias=False
+       
+        # Feature refinement
+        # 3C -> C
+        
+        self.refinement = nn.Sequential(
+            nn.Conv2d(
+                multi_scale_channels,
+                channels,
+                kernel_size=1,
+                bias=False
+            ),
+            nn.BatchNorm2d(channels),
+            nn.SiLU(inplace=True)
         )
 
     def forward(self, x):
         residual = x
 
-        # Equations (17)-(19):
+        # Multi-scale depth-wise feature extraction.
         f3 = self.dwconv3(x)
         f5 = self.dwconv5(x)
         f7 = self.dwconv7(x)
 
-        # Equation (20):
-        multi_scale = torch.cat(
+        # Concatenate multi-scale representations.
+        f_cat = torch.cat(
             [f3, f5, f7],
             dim=1
         )
 
-        # Channel refinement:
-        refined = self.channel_attention(multi_scale)
+        # Channel attention.
+        f_channel = self.channel_attention(
+            f_cat
+        )
 
-        # Spatial refinement:
-        refined = self.spatial_attention(refined)
+        # Spatial attention.
+        f_spatial = self.spatial_attention(
+            f_channel
+        )
 
-        # Equation (31): restore C channels.
-        projected = self.projection(refined)
+        # Point-wise projection + normalization + activation.
+        f_refined = self.refinement(
+            f_spatial
+        )
 
-        # Equation (33): residual refinement.
-        return projected + residual
+        # Residual connection.
+        return f_refined + residual

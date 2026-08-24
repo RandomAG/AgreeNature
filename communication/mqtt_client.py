@@ -1,36 +1,31 @@
 """
-MQTT metadata publisher.
+MQTT metadata communication.
 
-Only compact threat metadata is transmitted.
-Raw surveillance frames are never passed to this client.
+Only compact threat metadata is transmitted outside the edge
+device. Raw surveillance frames are never passed to this class.
 """
-
-import json
 
 
 class MQTTMetadataPublisher:
-    """
-    Lightweight MQTT publisher for threat metadata.
-
-    The actual MQTT connection is injected through the client
-    object so that deployment-specific configuration remains
-    outside the framework logic.
-    """
+    """Publish threat metadata through MQTT."""
 
     def __init__(
         self,
-        client,
-        topic="pewtaf/threats"
+        mqtt_client,
+        topic="pewtaf/threat"
     ):
-        self.client = client
+        self.client = mqtt_client
         self.topic = topic
 
     def publish(self, metadata):
-        """Publish a metadata dictionary."""
+        """
+        Publish metadata using the configured MQTT client.
 
-        payload = json.dumps(metadata)
+        TLS configuration, authentication, certificates and broker
+        details remain deployment-specific.
+        """
 
         return self.client.publish(
             self.topic,
-            payload
+            payload=metadata
         )

@@ -1,23 +1,21 @@
 """
 Temporal Threat Validation Module (TTVM)
 
-Reference implementation of the TTVM described in the
-manuscript.
+Temporal validation of frame-level weapon detections.
 
-The module performs:
-    1. FIFO temporal buffering
-    2. Persistence scoring
-    3. Persistence thresholding
-    4. Majority voting over predicted weapon classes
+Pipeline:
 
-The validated detection is represented as:
+    Last N detections
+        |
+        +--> Persistence computation
+        |
+        +--> Majority voting
+        |
+        +--> Validated threat instance
+
+Output:
 
     V_t = {b_t, c*_t, P_t}
-
-where:
-    b_t  = validated bounding-box location
-    c*_t = temporally validated weapon category
-    P_t  = persistence score
 """
 
 from collections import Counter, deque
@@ -27,156 +25,136 @@ from typing import List, Optional
 
 @dataclass
 class ValidatedDetection:
-    """
-    Temporally validated weapon detection.
-
-    Attributes
-    ----------
-    bbox : list
-        Bounding-box coordinates for the current validated detection.
-
-    class_name : str
-        Majority-voted weapon category.
-
-    persistence : float
-        Proportion of frames in the temporal window in which
-        the weapon category was detected.
-    """
+    """Validated temporal threat instance."""
 
     bbox: List[float]
     class_name: str
+    confidence: float
     persistence: float
 
 
 class TemporalThreatValidator:
     """
-    FIFO-based Temporal Threat Validation Module.
+    FIFO-based temporal validation.
 
-    Persistence is calculated as:
-
-        P_t = n_p / N
+    P_t = n_p / N
 
     where:
-        n_p = number of frames in which the weapon is detected
-        N   = number of frames in the observation window
-
-    A detection is considered temporally valid when:
-
-        P_t >= persistence_threshold
+        n_p = number of frames containing the candidate class
+        N   = number of frames in the temporal window
     """
 
-    def __init__(self, window_size: int = 5, persistence_threshold: float = 0.6):
-        if window_size <= 0:
+    def __init__(
+        self,
+        window_size=5,
+        persistence_threshold=0.60
+    ):
+        if window_size < 1:
             raise ValueError(
-                "window_size must be greater than zero."
+                "window_size must be positive."
             )
 
         if not 0.0 <= persistence_threshold <= 1.0:
             raise ValueError(
-                "persistence_threshold must be between 0 and 1."
+                "persistence_threshold must be in [0, 1]."
             )
 
         self.window_size = window_size
-        self.persistence_threshold = persistence_threshold
+        self.persistence_threshold = (
+            persistence_threshold
+        )
 
-        # Sliding FIFO observation window.
-        self.buffer = deque(maxlen=window_size)
+        self.buffer = deque(
+            maxlen=window_size
+        )
 
     def update(self, detections):
         """
-        Add the detections from the current frame and perform
-        temporal validation.
-
-        Parameters
-        ----------
-        detections : list
-            List of Detection objects produced by the detection
-            post-processing stage.
-
-        Returns
-        -------
-        ValidatedDetection or None
-            Temporally validated detection when the persistence
-            condition is satisfied; otherwise None.
+        Update the temporal window and validate the current
+        detection set.
         """
 
-        # Store the current frame's detections.
-        self.buffer.append(detections)
+        self.buffer.append(
+            list(detections)
+        )
 
         if not detections:
             return None
 
-        # Collect weapon categories observed in the temporal window.
+        # Build class sequence across the temporal window
         class_sequence = []
 
-        for frame_detections in self.buffer:
-            for detection in frame_detections:
-                class_sequence.append(
-                    detection.class_name
-                )
+        for frame in self.buffer:
+            class_sequence.extend(
+                detection.class_name
+                for detection in frame
+            )
 
         if not class_sequence:
             return None
 
-        # Majority voting:
-        #
-        # c* = Mode(C_t)
+
+        # Majority voting
         majority_class, _ = Counter(
             class_sequence
         ).most_common(1)[0]
 
-        # Persistence calculation:
-        #
-        # n_p = number of frames in which the majority weapon
-        #       category was detected.
-        #
-        # N = number of frames in the current temporal window.
-        frame_count = len(self.buffer)
+        # Persistence is calculated per frame, not per detection
+        observed_frames = len(
+            self.buffer
+        )
 
-        detected_frames = sum(
+        confirmed_frames = sum(
             1
-            for frame_detections in self.buffer
+            for frame in self.buffer
             if any(
-                detection.class_name == majority_class
-                for detection in frame_detections
+                detection.class_name
+                == majority_class
+                for detection in frame
             )
         )
 
-        persistence = detected_frames / frame_count
+        persistence = (
+            confirmed_frames
+            / observed_frames
+        )
 
-        # Temporal validity condition:
-        #
-        # P_t >= tau_p
+
+        # Temporal validation threshold
         if persistence < self.persistence_threshold:
             return None
 
-        # Select the current-frame detection corresponding to
-        # the temporally validated class. The paper represents
-        # the validated location as b_t.
-        current_detection = next(
-            (
-                detection
-                for detection in reversed(detections)
-                if detection.class_name == majority_class
-            ),
-            None
-        )
+        # Select the current-frame instance belonging to the validated majority class
+        candidates = [
+            detection
+            for detection in detections
+            if detection.class_name
+            == majority_class
+        ]
 
-        if current_detection is None:
+        if not candidates:
             return None
 
+        # Highest-confidence current-frame instance
+        selected = max(
+            candidates,
+            key=lambda item: item.confidence
+        )
+
         return ValidatedDetection(
-            bbox=current_detection.bbox,
+            bbox=selected.bbox,
             class_name=majority_class,
+            confidence=selected.confidence,
             persistence=persistence
         )
 
     def reset(self):
-        """Clear the temporal FIFO buffer."""
+        """Reset the temporal observation window."""
 
         self.buffer.clear()
 
-    def buffer_size(self) -> int:
-        """Return the number of frames currently stored."""
+    @property
+    def current_window_size(self):
+        """Number of frames currently in the FIFO window."""
 
         return len(self.buffer)

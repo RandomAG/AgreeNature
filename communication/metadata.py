@@ -1,48 +1,46 @@
 """
-Threat metadata generation.
+Compact threat metadata generation.
 
-The metadata structure follows the representation M_t described
-in the manuscript.
+Raw image/video data are deliberately excluded from the packet.
 """
 
-from dataclasses import asdict
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
 
 
 class MetadataGenerator:
-    """Generate compact threat metadata packets."""
+    """Generate the metadata-only threat packet."""
 
     def generate(self, assessment):
-        """
-        Convert a ThreatAssessmentResult into a metadata dictionary.
-        
-        """
-
         timestamp = datetime.now(
             timezone.utc
         ).isoformat()
 
-        metadata = {
+        return {
             "timestamp": timestamp,
-            "weapon_category": assessment.weapon_class,
+            "weapon_type": assessment.weapon_class,
+            "confidence": round(
+                assessment.confidence,
+                4
+            ),
+            "persistence": round(
+                assessment.persistence,
+                4
+            ),
             "threat_score": round(
                 assessment.threat_score,
                 4
             ),
             "threat_level": assessment.threat_level,
-            "confidence": round(
-                assessment.confidence,
-                4
-            ),
-            "bounding_box": assessment.bbox,
-            "alert_priority": assessment.alert_priority
+            "alert_priority": assessment.alert_priority,
+            "bbox": [
+                round(float(value), 2)
+                for value in assessment.bbox
+            ]
         }
 
-        return metadata
-
     def serialize(self, metadata):
-        """Serialize metadata for transmission."""
+        """Convert metadata to a compact JSON packet."""
 
         return json.dumps(
             metadata,
