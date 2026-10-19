@@ -11,13 +11,13 @@ import torch
 
 
 class FramePreprocessor:
-    """Prepare RGB video frames for neural-network inference."""
+    """Preparing RGB video frames for neural-network inference."""
 
     def __init__(self, image_size=640):
         self.image_size = image_size
 
     def resize(self, frame):
-        """Resize an input frame to the model resolution."""
+        """Resizing an input frame to the model resolution."""
         return cv2.resize(
             frame,
             (self.image_size, self.image_size),
@@ -25,11 +25,11 @@ class FramePreprocessor:
         )
 
     def normalize(self, frame):
-        """Convert pixel values from [0, 255] to [0, 1]."""
+        """Normalizing pixel values from [0, 255] to [0, 1]."""
         return frame.astype(np.float32) / 255.0
 
     def to_tensor(self, frame):
-        """Convert HWC image format to BCHW tensor format."""
+        """Converting HWC image format to BCHW tensor format."""
         tensor = torch.from_numpy(frame)
         tensor = tensor.permute(2, 0, 1)
         tensor = tensor.unsqueeze(0)

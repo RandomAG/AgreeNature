@@ -8,7 +8,6 @@ assessment stages.
 
 from dataclasses import dataclass
 from typing import List
-
 import torch
 
 
@@ -23,24 +22,24 @@ class Detection:
 
 
 class DetectionPostProcessor:
-    """Filter and standardize detector predictions."""
+    """Filtering and standardizing detector predictions."""
 
     def __init__(self, class_names=None, confidence_threshold=0.25):
+        # Harmonized classes for weapon detection
         self.class_names = class_names or [
-            "pistol",
-            "knife",
-            "rifle"
+            "Pistol",
+            "Knife",
+            "Rifle"
         ]
         self.confidence_threshold = confidence_threshold
 
     def process(self, predictions):
         """
-        Convert model predictions into Detection objects.
+        Converting model predictions into Detection objects.
 
         Expected prediction format per detection:
             [x1, y1, x2, y2, confidence, class_id]
         """
-
         detections = []
 
         if isinstance(predictions, torch.Tensor):
@@ -48,7 +47,6 @@ class DetectionPostProcessor:
 
         for prediction in predictions:
             x1, y1, x2, y2, confidence, class_id = prediction
-
             confidence = float(confidence)
 
             if confidence < self.confidence_threshold:
@@ -59,7 +57,7 @@ class DetectionPostProcessor:
             if 0 <= class_id < len(self.class_names):
                 class_name = self.class_names[class_id]
             else:
-                class_name = "unknown"
+                class_name = "Unknown"
 
             detections.append(
                 Detection(
