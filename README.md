@@ -73,4 +73,4 @@ The final citation should be updated with the publication year, volume, article 
 
 ## License
 
-Specify the license applicable to the code and other materials in this repository. Third-party datasets, images, pretrained weights, and other resources may be subject to separate licensing conditions.
+The license applicable here is Creative Commons Attribution 4.0 International (CC BY 4.0).
