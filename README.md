@@ -55,13 +55,13 @@ The proposed framework achieved the following results under the experimental con
 
 ## Repository Contents
 
-This repository provides the implementation and supporting resources associated with the proposed framework. The availability of individual modules, model weights, deployment scripts, and evaluation utilities depends on the files included in the published repository.
+This repository contains the code implementation of the proposed PEWTAF framework. 
 
 ## Code Availability
 
-The source code and associated implementation materials will be linked to a permanent, DOI-assigned Zenodo record in accordance with the journal's code-availability requirements.
+The source code has been linked to a permanent, DOI-assigned Zenodo record in accordance with the journal's code-availability requirements.
 
-**Zenodo DOI:** To be added after the code deposit is published.
+**Zenodo DOI:** 
 
 ## Privacy and Responsible Use
 
