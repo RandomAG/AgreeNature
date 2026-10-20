@@ -61,7 +61,7 @@ This repository contains the code implementation of the proposed PEWTAF framewor
 
 The source code has been linked to a permanent, DOI-assigned Zenodo record in accordance with the journal's code-availability requirements.
 
-**Zenodo DOI:** 
+**Zenodo DOI:** https://doi.org/10.5281/zenodo.23510214
 
 ## Privacy and Responsible Use
 
