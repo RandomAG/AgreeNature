@@ -69,19 +69,6 @@ PEWTAF is intended as a research framework for automated visual detection and ri
 
 Real-world deployment requires appropriate privacy safeguards, authorization to process surveillance footage, evaluation under representative environmental conditions, and human oversight of security-related decisions.
 
-## Citation
-
-If you use this work in your research, please cite the published paper once its final bibliographic details are available.
-
-```bibtex
-@article{pewtaf2026,
-  title   = {A Privacy-Aware Lightweight Edge Intelligent Framework for Real-Time Lethal Threat Interception and Risk Assessment},
-  author  = {Saha, Himadri Nath and Banerjee, Utsho and Ghosh, Ayush and Mattar, Ebrahim Abdulla and Bhattacharya, Pronoya and Shieh, Chin-Shiuh},
-  journal = {Scientific Reports},
-  year    = {2026}
-}
-```
-
 The final citation should be updated with the publication year, volume, article number, and DOI assigned by the journal.
 
 ## License
