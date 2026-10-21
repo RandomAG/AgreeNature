@@ -63,7 +63,7 @@ class ThreatAssessment:
     }
 
     def _severity(self, weapon_class: str) -> float:
-        """Map validated weapon category to its severity coefficient W_c."""
+        """Map validated weapon category to its severity coefficient W_c"""
         normalized = weapon_class.lower().strip()
         return self.SEVERITY_WEIGHTS.get(normalized, self.SEVERITY_WEIGHTS["other"])
 

@@ -16,17 +16,7 @@ Hailo-8L:
 
 class RaspberryPiPipeline:
 
-    def __init__(
-        self,
-        preprocessor,
-        hailo_backend,
-        postprocessor,
-        temporal_validator,
-        threat_assessor,
-        metadata_generator,
-        frame_processor,
-        publisher=None
-    ):
+    def __init__(self, preprocessor, hailo_backend, postprocessor, temporal_validator, threat_assessor, metadata_generator, frame_processor, publisher=None):
         self.preprocessor = preprocessor
         self.hailo = hailo_backend
         self.postprocessor = postprocessor
@@ -60,18 +50,10 @@ class RaspberryPiPipeline:
                 return None
 
             # CPU: threat assessment
-            assessment = self.threat_assessor.evaluate(
-                bbox=validated.bbox,
-                weapon_class=validated.class_name,
-                confidence=validated.confidence,
-                persistence=validated.persistence
-            )
+            assessment = self.threat_assessor.evaluate(bbox=validated.bbox, weapon_class=validated.class_name, confidence=validated.confidence, persistence=validated.persistence)
 
             # CPU: metadata generation
-            metadata = self.metadata_generator.generate(
-                assessment
-            )
-
+            metadata = self.metadata_generator.generate(assessment)
 
             # Communication: metadata only
             if self.publisher is not None:

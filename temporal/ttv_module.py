@@ -8,8 +8,7 @@ Temporal validation of frame-level weapon detections:
     4. Categorical majority voting: c* = Mode(C_t)
     5. EMA bounding box smoothing: b_t = alpha * b_t^curr + (1 - alpha) * b_{t-1}
 
-Output:
-    V_t = {b_t, c*, P_t}
+Output: V_t = {b_t, c*, P_t}
 """
 
 from collections import Counter, deque
@@ -28,8 +27,7 @@ class ValidatedDetection:
 
 class TemporalThreatValidator:
     """
-    Lightweight FIFO-based temporal threat validation with spatial IoU
-    tracking and EMA bounding box stabilization.
+    Lightweight FIFO-based temporal threat validation with spatial IoU tracking and EMA bounding box stabilization.
     """
 
     def __init__(
@@ -57,7 +55,7 @@ class TemporalThreatValidator:
 
     @staticmethod
     def _compute_iou(boxA: List[float], boxB: List[float]) -> float:
-        """Compute Intersection-over-Union (IoU) between two bounding boxes (Eq. 37)."""
+        """Compute Intersection-over-Union (IoU) between two bounding boxes"""
         xA = max(boxA[0], boxB[0])
         yA = max(boxA[1], boxB[1])
         xB = min(boxA[2], boxB[2])
@@ -72,8 +70,7 @@ class TemporalThreatValidator:
 
     def update(self, detections) -> Optional[ValidatedDetection]:
         """
-        Updating the sliding window buffer, evaluating IoU-based cross-frame persistence,
-        performing majority voting, and applying EMA box smoothing.
+        Updating the sliding window buffer, evaluating IoU-based cross-frame persistence, performing majority voting, and applying EMA box smoothing.
         """
         self.buffer.append(list(detections) if detections else [])
 
@@ -124,12 +121,7 @@ class TemporalThreatValidator:
 
         self.prev_smoothed_bbox = smoothed_bbox
 
-        return ValidatedDetection(
-            bbox=smoothed_bbox,
-            class_name=majority_class,
-            confidence=candidate.confidence,
-            persistence=persistence
-        )
+        return ValidatedDetection(bbox=smoothed_bbox, class_name=majority_class, confidence=candidate.confidence, persistence=persistence)
 
     def reset(self):
         """Reseting temporal FIFO window and smoothed state."""

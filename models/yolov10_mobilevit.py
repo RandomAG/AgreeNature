@@ -13,16 +13,10 @@ from .mshsa import MSHSA
 
 
 class ConvBNAct(nn.Module):
-    """Standard convolution + batch normalization + SiLU."""
+    """Standard convolution + batch normalization + SiLU"""
 
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        kernel_size=3,
-        stride=1,
-        groups=1
-    ):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, groups=1):
+
         super().__init__()
         padding = kernel_size // 2
         self.block = nn.Sequential(
@@ -151,11 +145,8 @@ class HybridYOLOv10MobileViT(nn.Module):
     Hybrid YOLOv10-MobileViTv3 backbone with MSHSA refinement and multi-scale fusion
     """
 
-    def __init__(
-        self,
-        in_channels=3,
-        channels=(32, 64, 128, 256, 512)
-    ):
+    def __init__(self, in_channels=3, channels=(32, 64, 128, 256, 512)):
+        
         super().__init__()
         c1, c2, c3, c4, c5 = channels
 

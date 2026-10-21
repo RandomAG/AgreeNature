@@ -33,81 +33,28 @@ from evaluation.benchmark import DeploymentBenchmark
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Run PEWTAF Edge Threat Interception Pipeline"
-    )
-    parser.add_argument(
-        "--source",
-        type=str,
-        default="0",
-        help="Path to video file, RTSP stream URL, or camera device index (default: '0')"
-    )
-    parser.add_argument(
-        "--hef",
-        type=str,
-        default=None,
-        help="Path to compiled Hailo HEF model file (if running on Raspberry Pi + Hailo-8L)"
-    )
-    parser.add_argument(
-        "--weights",
-        type=str,
-        default=None,
-        help="Path to PyTorch model checkpoint (.pt) for workstation/CPU emulation"
-    )
-    parser.add_argument(
-        "--img-size",
-        type=int,
-        default=640,
-        help="Inference frame resolution (default: 640)"
-    )
-    parser.add_argument(
-        "--conf-thresh",
-        type=float,
-        default=0.25,
-        help="Detection confidence cutoff (default: 0.25)"
-    )
-    parser.add_argument(
-        "--window-size",
-        type=int,
-        default=5,
-        help="TTVM sliding temporal observation window N (default: 5)"
-    )
-    parser.add_argument(
-        "--persistence-thresh",
-        type=float,
-        default=0.60,
-        help="TTVM persistence score threshold tau_p (default: 0.60)"
-    )
-    parser.add_argument(
-        "--alpha-ema",
-        type=float,
-        default=0.80,
-        help="TTVM EMA bounding box smoothing parameter alpha (default: 0.80)"
-    )
-    parser.add_argument(
-        "--mqtt-broker",
-        type=str,
-        default=None,
-        help="Optional MQTT broker IP for real-time alert dispatch"
-    )
-    parser.add_argument(
-        "--rest-endpoint",
-        type=str,
-        default=None,
-        help="Optional HTTP REST endpoint for alert telemetry"
-    )
-    parser.add_argument(
-        "--display",
-        action="store_true",
-        help="Display on-screen preview (local debug mode only; disable for headless edge deployment)"
-    )
+    parser = argparse.ArgumentParser(description="Run PEWTAF Edge Threat Interception Pipeline")
+    parser.add_argument("--source", type=str, default="0", help="Path to video file, RTSP stream URL, or camera device index (default: '0')")
+    parser.add_argument("--hef", type=str, default=None, help="Path to compiled Hailo HEF model file (if running on Raspberry Pi + Hailo-8L)")
+    parser.add_argument("--weights", type=str, default=None, help="Path to PyTorch model checkpoint (.pt) for workstation/CPU emulation")
+    parser.add_argument("--img-size", type=int, default=640, help="Inference frame resolution (default: 640)")
+    parser.add_argument("--conf-thresh", type=float, default=0.25, help="Detection confidence cutoff (default: 0.25)")
+    parser.add_argument("--window-size", type=int, default=5, help="TTVM sliding temporal observation window N (default: 5)")
+    parser.add_argument("--persistence-thresh", type=float, default=0.60, help="TTVM persistence score threshold tau_p (default: 0.60)")
+    parser.add_argument("--alpha-ema", type=float, default=0.80, help="TTVM EMA bounding box smoothing parameter alpha (default: 0.80)")
+    parser.add_argument("--mqtt-broker", type=str, default=None, help="Optional MQTT broker IP for real-time alert dispatch")
+    parser.add_argument("--rest-endpoint", type=str, default=None, help="Optional HTTP REST endpoint for alert telemetry")
+    parser.add_argument("--display", action="store_true", help="Display on-screen preview (local debug mode only; disable for headless edge deployment)")
+    parser.add_argument("--demo", action="store_true", help="Run with simulated persistent detections to verify pipeline without trained model weights")
     return parser.parse_args()
 
 
 class MockPyTorchInferenceBackend:
-    """Fallback PyTorch runner if Hailo-8L hardware runtime is not present."""
-    def __init__(self, weights_path=None):
+    """Fallback PyTorch runner if Hailo-8L hardware runtime is not present"""
+    def __init__(self, weights_path=None, demo_mode=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.demo_mode = demo_mode
+        self.frame_idx = 0
         print(f"[INFO] Initializing PyTorch Inference Backend on: {self.device}")
         
         # Load Hybrid YOLOv10-MobileViTv3 model architecture
@@ -121,32 +68,38 @@ class MockPyTorchInferenceBackend:
                 self.model.load_state_dict(state_dict, strict=False)
                 print(f"[INFO] Loaded weights from {weights_path}")
             except Exception as e:
-                print(f"[WARNING] Could not load checkpoint ({e}). Running in inference test mode.")
+                print(f"[WARNING] Could not load checkpoint ({e}). Running in test mode.")
 
     def infer(self, tensor):
+        self.frame_idx += 1
+        # Demonstration simulation: temporal persistence evaluation
+        if self.demo_mode:
+            # Simulates a persistent Pistol from frame 10 to 30
+            if 10 <= self.frame_idx <= 30:
+                return [[150.0, 120.0, 260.0, 290.0, 0.91, 0]]
+            # Simulates a transient noise detection at frame 45 (suppressed by TTVM)
+            elif self.frame_idx == 45:
+                return [[300.0, 200.0, 350.0, 280.0, 0.42, 1]]
+            return []
+
         tensor = tensor.to(self.device)
         with torch.no_grad():
-            # In test mode, returns predictions format: [x1, y1, x2, y2, confidence, class_id]
-            # When deploying with real detector head, replace with head output decoding
             return []
 
 
-def setup_inference_backend(hef_path, weights_path):
+def setup_inference_backend(hef_path, weights_path, demo_mode=False):
     """Selecting between native Hailo-8L NPU or PyTorch host backend"""
     if hef_path:
         try:
             from deployment.hailo_inference import HailoInference
-            # Assuming native HailoRT Python library is installed
-            import hailo_platform as hp
-            hailo_runtime = hp.HailoRT()
-            backend = HailoInference(hef_path=hef_path, runtime=hailo_runtime)
+            backend = HailoInference(hef_path=hef_path)
             backend.initialize()
             print(f"[INFO] Hailo-8L NPU initialized successfully with {hef_path}")
             return backend
         except Exception as err:
             print(f"[WARNING] Failed to initialize Hailo-8L hardware ({err}). Falling back to host PyTorch.")
 
-    return MockPyTorchInferenceBackend(weights_path=weights_path)
+    return MockPyTorchInferenceBackend(weights_path=weights_path, demo_mode=demo_mode)
 
 
 def main():
@@ -158,16 +111,8 @@ def main():
 
     # 1. Initialize Pipeline Modules
     preprocessor = FramePreprocessor(image_size=args.img_size)
-    postprocessor = DetectionPostProcessor(
-        class_names=["Pistol", "Knife", "Rifle"],
-        confidence_threshold=args.conf_thresh
-    )
-    temporal_validator = TemporalThreatValidator(
-        window_size=args.window_size,
-        persistence_threshold=args.persistence_thresh,
-        tau_iou=0.50,
-        alpha=args.alpha_ema
-    )
+    postprocessor = DetectionPostProcessor(class_names=["Pistol", "Knife", "Rifle"], confidence_threshold=args.conf_thresh)
+    temporal_validator = TemporalThreatValidator(window_size=args.window_size, persistence_threshold=args.persistence_thresh, tau_iou=0.50, alpha=args.alpha_ema)
     threat_assessor = ThreatAssessment()
     metadata_generator = MetadataGenerator()
     ephemeral_processor = EphemeralFrameProcessor()
@@ -177,7 +122,7 @@ def main():
     rest_client = RESTMetadataClient(args.rest_endpoint) if args.rest_endpoint else None
 
     # Setup inference backend (Hailo or PyTorch)
-    backend = setup_inference_backend(args.hef, args.weights)
+    backend = setup_inference_backend(args.hef, args.weights, demo_mode=args.demo)
 
     # 2. Open Video Stream
     source_input = int(args.source) if args.source.isdigit() else args.source
@@ -204,6 +149,7 @@ def main():
 
             # --- Ephemeral Frame Processing Mechanism (EFPM) ---
             ephemeral_processor.store(frame)
+            current_packet = None
 
             try:
                 # Step 1: Preprocessing (CPU)
@@ -228,37 +174,36 @@ def main():
                     )
 
                     # Step 6: Metadata Generation & Secure Dispatch
-                    packet = metadata_generator.generate(assessment)
-                    json_payload = metadata_generator.serialize(packet)
+                    current_packet = metadata_generator.generate(assessment)
+                    json_payload = metadata_generator.serialize(current_packet)
 
                     print(f"[ALERT DISPATCH] Frame #{frame_count} | "
-                          f"Class: {packet['class']} | "
-                          f"Threat Score (Rt): {packet['threat_score']} | "
-                          f"Level: {packet['threat_level']} | "
-                          f"Priority: Level {packet['alert_priority']}")
+                          f"Class: {current_packet['class']} | "
+                          f"Threat Score (Rt): {current_packet['threat_score']} | "
+                          f"Level: {current_packet['threat_level']} | "
+                          f"Priority: Level {current_packet['alert_priority']}")
 
                     # Remote transmission (encrypted metadata only)
                     if rest_client:
                         try:
-                            rest_client.send(packet)
+                            rest_client.send(current_packet)
                         except Exception as e:
                             print(f"[COMM ERROR] REST post failed: {e}")
 
                 # Local GUI display (for qualitative evaluation/demo only)
                 if args.display:
                     display_frame = frame.copy()
-                    if validated is not None:
+                    if validated is not None and current_packet is not None:
                         x1, y1, x2, y2 = [int(v) for v in validated.bbox]
-                        label = f"{validated.class_name} ({packet['threat_level']}: {packet['threat_score']})"
+                        label = f"{validated.class_name} ({current_packet['threat_level']}: {current_packet['threat_score']})"
                         cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                        cv2.putText(display_frame, label, (x1, max(y1 - 10, 20)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                        cv2.putText(display_frame, label, (x1, max(y1 - 10, 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
                     cv2.imshow("PEWTAF Edge Surveillance Monitor", display_frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
 
             finally:
-                # EFPM: Enforce immediate volatile memory release (Section 4.8.2)
+                # EFPM: Enforce immediate volatile memory release
                 ephemeral_processor.discard()
 
             # Record elapsed time per frame

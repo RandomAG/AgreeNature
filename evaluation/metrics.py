@@ -1,8 +1,7 @@
 """
 Evaluation utilities for detection and operational threat assessment.
 
-Includes standard detection metrics (Precision, Recall, F1) alongside the
-system-level operational metrics:
+Includes standard detection metrics (Precision, Recall, F1) alongside the system-level operational metrics:
     - Actionable Alerts (%)               
     - Alert Prioritization Accuracy (%)   
     - Critical Threat Identification Rate 
@@ -33,7 +32,7 @@ def f1_score(precision_value, recall_value):
 
 
 def summarize_detection_metrics(true_positive, false_positive, false_negative):
-    """Computing basic detection metrics."""
+    """Computing basic detection metrics"""
     p = precision(true_positive, false_positive)
     r = recall(true_positive, false_negative)
     f1 = f1_score(p, r)
@@ -51,8 +50,7 @@ def actionable_alerts_rate(n_valid_true_threats: int, n_total_alerts: int) -> fl
     """
     Compute Actionable Alerts (%)
     
-    Measures the ratio of security alerts corresponding to confirmed, persistent
-    threat incidents rather than transient false alarms.
+    Measures the ratio of security alerts corresponding to confirmed, persistent threat incidents rather than transient false alarms.
     """
     if n_total_alerts == 0:
         return 0.0
@@ -63,8 +61,7 @@ def alert_prioritization_accuracy(predicted_levels: list, ground_truth_levels: l
     """
     Compute Alert Prioritization Accuracy (%) 
     
-    Evaluates the exact match rate between the model's assigned threat level
-    and the expert ground-truth risk level.
+    Evaluates the exact match rate between the model's assigned threat level and the expert ground-truth risk level.
     """
     if not ground_truth_levels:
         return 0.0

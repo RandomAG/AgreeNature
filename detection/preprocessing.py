@@ -1,8 +1,7 @@
 """
 Input preprocessing for the proposed detection pipeline.
 
-The Raspberry Pi performs frame acquisition and preprocessing
-before forwarding the input to the neural accelerator.
+The Raspberry Pi performs frame acquisition and preprocessing before forwarding the input to the neural accelerator.
 """
 
 import cv2
@@ -18,11 +17,7 @@ class FramePreprocessor:
 
     def resize(self, frame):
         """Resizing an input frame to the model resolution."""
-        return cv2.resize(
-            frame,
-            (self.image_size, self.image_size),
-            interpolation=cv2.INTER_LINEAR
-        )
+        return cv2.resize(frame, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
 
     def normalize(self, frame):
         """Normalizing pixel values from [0, 255] to [0, 1]."""
@@ -33,20 +28,15 @@ class FramePreprocessor:
         tensor = torch.from_numpy(frame)
         tensor = tensor.permute(2, 0, 1)
         tensor = tensor.unsqueeze(0)
-
         return tensor
 
     def process(self, frame):
         """
         Complete preprocessing pipeline.
 
-        Input:
-            BGR frame obtained from OpenCV.
-
-        Output:
-            Normalized BCHW tensor.
+        Input: BGR frame obtained from OpenCV.
+        Output: Normalized BCHW tensor.
         """
-
         frame = self.resize(frame)
 
         # OpenCV uses BGR; neural models conventionally use RGB.
@@ -54,12 +44,11 @@ class FramePreprocessor:
 
         frame = self.normalize(frame)
         frame = self.to_tensor(frame)
-
         return frame
 
 
 if __name__ == "__main__":
-    image = cv2.imread("sample.jpg")
+    image = cv2.imread("sample.jpg") # Replace with your own image path
 
     if image is None:
         raise FileNotFoundError("sample.jpg was not found.")
