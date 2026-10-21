@@ -1,9 +1,7 @@
 """
 Detection post-processing for the proposed pipeline.
 
-Converts raw object-detection predictions into a standardized
-representation used by the temporal validation and threat
-assessment stages.
+Converts raw object-detection predictions into a standardized representation used by the temporal validation and threat assessment stages.
 """
 
 from dataclasses import dataclass
@@ -13,7 +11,7 @@ import torch
 
 @dataclass
 class Detection:
-    """Standard representation of a single detection."""
+    """Standard representation of a single detection"""
 
     class_id: int
     class_name: str
@@ -22,7 +20,7 @@ class Detection:
 
 
 class DetectionPostProcessor:
-    """Filtering and standardizing detector predictions."""
+    """Filtering and standardizing detector predictions"""
 
     def __init__(self, class_names=None, confidence_threshold=0.25):
         # Harmonized classes for weapon detection
