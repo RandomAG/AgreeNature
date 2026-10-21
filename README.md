@@ -69,8 +69,6 @@ PEWTAF is intended as a research framework for automated visual detection and ri
 
 Real-world deployment requires appropriate privacy safeguards, authorization to process surveillance footage, evaluation under representative environmental conditions, and human oversight of security-related decisions.
 
-The final citation should be updated with the publication year, volume, article number, and DOI assigned by the journal.
-
 ## License
 
 The license applicable here is Creative Commons Attribution 4.0 International (CC BY 4.0).
