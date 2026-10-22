@@ -71,4 +71,4 @@ Real-world deployment requires appropriate privacy safeguards, authorization to 
 
 ## License
 
-The license applicable here is Creative Commons Attribution 4.0 International (CC BY 4.0).
+The repository and source code are licensed under the MIT license.
